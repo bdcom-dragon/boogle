@@ -1,29 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boogle Search Engine</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 100px;
-        }
-        #searchBox {
-            width: 300px;
-            padding: 10px;
-            font-size: 16px;
-        }
-        #results {
-            margin-top: 20px;
-            font-size: 16px;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Boogle Search Engine</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* small page-specific fallback styles */
+    body { font-family: Arial, sans-serif; text-align:center; margin-top:40px; }
+    #results { margin-top:20px; font-size:16px; max-width:900px; margin-left:auto; margin-right:auto; }
+  </style>
 </head>
 <body>
-    <h1>Boogle Search</h1>
-    <input type="text" id="searchBox" placeholder="Search Boogle...">
-    <div id="results">Results will be displayed here.</div>
+  <h1>Boogle Search</h1>
+
+  <div class="search-container" style="justify-content:center;">
+    <label for="searchInput" class="sr-only">Search Boogle</label>
+    <input type="search" id="searchInput" class="search-box" placeholder="Search Boogle..." autocomplete="off" />
+    <button id="searchButton" class="search-button" aria-label="Search">Search</button>
+  </div>
+
+  <div id="results" role="region" aria-live="polite">Results will be displayed here.</div>
+
+  <script src="script.js" defer></script>
 </body>
 </html>
