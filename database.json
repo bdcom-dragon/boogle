@@ -85,11 +85,6 @@
     "description": "Meeting Room Request, Meeting Schedule, Meeting Time, Weekly Meeting"
   },
   {
-    "title": "Office Meeting Room Management",
-    "url": "http://bdcom.dedyn.io:5000/meeting-room",
-    "description": "Meeting Room Request, Meeting Schedule, Meeting Time, Weekly Meeting"
-  },
-  {
     "title": "Dhaka R&D Assets",
     "url": "https://docs.qq.com/sheet/DTU16ZE5QZ0pEZE5N",
     "description": "Office Equipment List, All assets of Office, Jerry, Asset Number, Serial Number, Switches, BDCOM"
