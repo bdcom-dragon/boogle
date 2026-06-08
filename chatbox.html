@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Boogle — Search + Chat</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      .search-container { max-width: 800px; margin: 0 auto; }
+      #search { width: 100%; padding: 10px; font-size: 16px; }
+      .chatbox { margin-top: 12px; border: 1px solid #ddd; padding: 12px; border-radius: 6px; }
+      .messages { height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 8px; background: #fafafa; }
+      .message { margin: 6px 0; }
+      .message.user { text-align: right; color: #084298; }
+      .message.bot { text-align: left; color: #0b6623; }
+      .controls { margin-top: 8px; display:flex; gap:8px; }
+      button { padding: 8px 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="search-container">
+      <h1>Boogle</h1>
+      <!-- Existing search box (keep your existing id/class names if you want this to integrate) -->
+      <input id="search" placeholder="Type search or query here..." />
+
+      <!-- New chatbox added directly below the search box -->
+      <div class="chatbox" aria-label="Search chat">
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <div class="controls">
+          <input id="chat-input" placeholder="Ask the database (short technical answer)" style="flex:1; padding:8px;" />
+          <button id="send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Sends: query text + @bdcom-dragon/boogle/files/database.json
+      // Displays the returned short technical response from the backend.
+      const sendBtn = document.getElementById('send');
+      const chatInput = document.getElementById('chat-input');
+      const messages = document.getElementById('messages');
+
+      function appendMessage(text, cls) {
+        const div = document.createElement('div');
+        div.className = 'message ' + cls;
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      sendBtn.addEventListener('click', async () => {
+        const userQuery = (chatInput.value || '').trim();
+        if (!userQuery) return;
+        appendMessage(userQuery, 'user');
+        chatInput.value = '';
+
+        // Build the payload exactly as requested
+        const payload = {
+          query: userQuery + ' @bdcom-dragon/boogle/files/database.json',
+          systemPrompt: 'Search database.json and answer in short technical professional manner.'
+        };
+
+        appendMessage('…loading', 'bot');
+        try {
+          const res = await fetch('/api/gemini-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          // Replace the last 'loading' message with the actual response
+          const last = messages.querySelector('.message.bot:last-child');
+          const data = await res.json();
+          const answer = data.answer || JSON.stringify(data, null, 2);
+          if (last) last.textContent = answer;
+          else appendMessage(answer, 'bot');
+        } catch (err) {
+          appendMessage('Error contacting backend: ' + err.message, 'bot');
+        }
+      });
+
+      // Allow Enter to send
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendBtn.click();
+      });
+    </script>
+  </body>
+</html>
