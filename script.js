@@ -6,9 +6,10 @@ let databaseReady = Promise.resolve();
 let aiMode = false;
 
 const GEMINI_MODEL = 'gemini-3.5-flash';
-const GEMINI_API_KEY = 'AQ.Ab8RN6LBP2nW0eD2nshWtgkXlWfn4hQzJxPI_107lpXi1pCtvA';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const GEMINI_SYSTEM_PROMPT = 'answer the query from in short MD answer with links and explanations. as short and to-the-point as possible, but provide correct URL, so that user can click and visit site.';
+const GEMINI_KEY_DOMAIN = 'boogle.ai.bdcom.dedyn.io';
+const DNS_TXT_LOOKUP_URL = `https://dns.google/resolve?name=${encodeURIComponent(GEMINI_KEY_DOMAIN)}&type=TXT`;
+const GEMINI_SYSTEM_PROMPT = 'You are Boogle AI. You will answer the query from user in short MD answer with links and explanations. As short and to-the-point as possible, but provide correct URL, so that user can click and visit site.';
 
 // Utility: escape text for insertion into HTML (returns text node or safe text)
 function escapeHtml(text) {
@@ -103,6 +104,32 @@ function setAiAnswer(html, show = true) {
   answerEl.innerHTML = html;
 }
 
+function parseDnsTxtRecord(record) {
+  const value = (record || '').trim();
+  const quotedParts = value.match(/"((?:[^"\\]|\\.)*)"/g);
+
+  if (!quotedParts) return value;
+
+  return quotedParts
+    .map(part => part.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\'))
+    .join('')
+    .trim();
+}
+
+async function resolveGeminiApiKey() {
+  const resp = await fetch(DNS_TXT_LOOKUP_URL, {cache: 'no-store'});
+  if (!resp.ok) throw new Error('Failed to lookup Gemini API key.');
+
+  const json = await resp.json();
+  const apiKey = json.Answer
+    ?.filter(answer => answer.type === 16)
+    .map(answer => parseDnsTxtRecord(answer.data))
+    .find(Boolean);
+
+  if (!apiKey) throw new Error('Gemini API key TXT record not found.');
+  return apiKey;
+}
+
 function renderMarkdown(markdown) {
   const escaped = escapeMarkup(markdown);
 
@@ -142,12 +169,13 @@ async function askGemini(query, button) {
 
   try {
     await databaseReady;
+    const apiKey = await resolveGeminiApiKey();
     const payloadText = `User query:\n${query}\n\nDatabase JSON file content:\n${databaseContent}`;
     const resp = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': GEMINI_API_KEY
+        'x-goog-api-key': apiKey
       },
       body: JSON.stringify({
         systemInstruction: {
@@ -166,6 +194,9 @@ async function askGemini(query, button) {
     const json = await resp.json();
     if (resp.status === 429) {
       throw new Error('Please ask one minute later.');
+    }
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('Invalid Gemini API key.');
     }
     if (!resp.ok) {
       throw new Error(json.error?.message || 'Gemini request failed');
