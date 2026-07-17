@@ -15,21 +15,18 @@
   <div class="page-center">
     <h1 class="logo">Boogle</h1>
 
+    <label class="ai-toggle">
+      <input type="checkbox" id="aiModeToggle" />
+      <span class="switch" aria-hidden="true"></span>
+      <span>AI Mode</span>
+    </label>
+
     <div class="search-bar">
       <input type="search" id="searchInput" placeholder="Search Boogle..." autocomplete="off" />
       <button id="searchButton">Search</button>
     </div>
 
-    <div class="chatbox-container">
-      <div class="chat-box" id="chatBox">
-        <div class="chat-messages" id="chatMessages"></div>
-        <div class="chat-input-area">
-          <input type="text" id="chatInput" placeholder="Ask Gemini about search results..." autocomplete="off" />
-          <button id="chatSendButton">Send</button>
-        </div>
-      </div>
-    </div>
-
+    <div id="aiAnswer" class="ai-answer" hidden></div>
     <div id="results"></div>
   </div>
 

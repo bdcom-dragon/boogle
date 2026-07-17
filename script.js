@@ -1,6 +1,14 @@
 // script.js - improved and safe version
 
 let data = [];
+let databaseContent = '';
+let databaseReady = Promise.resolve();
+let aiMode = false;
+
+const GEMINI_MODEL = 'gemini-3.5-flash';
+const GEMINI_API_KEY = 'AQ.Ab8RN6LBP2nW0eD2nshWtgkXlWfn4hQzJxPI_107lpXi1pCtvA';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_SYSTEM_PROMPT = 'answer the query from in short MD answer with links and explanations. as short and to-the-point as possible, but provide correct URL, so that user can click and visit site.';
 
 // Utility: escape text for insertion into HTML (returns text node or safe text)
 function escapeHtml(text) {
@@ -8,11 +16,19 @@ function escapeHtml(text) {
   return text == null ? '' : String(text);
 }
 
+function escapeMarkup(text) {
+  return escapeHtml(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 async function loadDatabase() {
   try {
     const resp = await fetch('database.json', {cache: "no-store"});
     if (!resp.ok) throw new Error('Network response was not ok');
-    const json = await resp.json();
+    databaseContent = await resp.text();
+    const json = JSON.parse(databaseContent);
     // Normalize items: ensure we have title, description, url
     data = json.map(item => ({
       title: item.title || '',
@@ -80,27 +96,143 @@ function displayResults(results, query = '') {
   });
 }
 
+function setAiAnswer(html, show = true) {
+  const answerEl = document.getElementById('aiAnswer');
+  if (!answerEl) return;
+  answerEl.hidden = !show;
+  answerEl.innerHTML = html;
+}
+
+function renderMarkdown(markdown) {
+  const escaped = escapeMarkup(markdown);
+
+  return escaped
+    .split(/\n{2,}/)
+    .map(block => {
+      const lines = block.split('\n').filter(Boolean);
+      const isList = lines.every(line => /^\s*[-*]\s+/.test(line));
+      const body = lines
+        .map(line => line
+          .replace(/^\s*[-*]\s+/, '')
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>'))
+        .join('<br>');
+
+      if (isList) {
+        return `<ul>${body.split('<br>').map(item => `<li>${item}</li>`).join('')}</ul>`;
+      }
+      return `<p>${body}</p>`;
+    })
+    .join('');
+}
+
+async function askGemini(query, button) {
+  query = (query || '').trim();
+  if (!query) {
+    setAiAnswer('<p>Type a prompt first.</p>');
+    return;
+  }
+
+  setAiAnswer('<p>Asking Gemini...</p>');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Asking...';
+  }
+
+  try {
+    await databaseReady;
+    const payloadText = `User query:\n${query}\n\nDatabase JSON file content:\n${databaseContent}`;
+    const resp = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: GEMINI_SYSTEM_PROMPT }]
+        },
+        contents: [{
+          parts: [{ text: payloadText }]
+        }],
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.2
+        }
+      })
+    });
+
+    const json = await resp.json();
+    if (resp.status === 429) {
+      throw new Error('Please ask one minute later.');
+    }
+    if (!resp.ok) {
+      throw new Error(json.error?.message || 'Gemini request failed');
+    }
+
+    const text = json.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || '')
+      .join('')
+      .trim();
+
+    setAiAnswer(text ? renderMarkdown(text) : '<p>No answer returned.</p>');
+  } catch (err) {
+    console.error('Gemini API error:', err);
+    setAiAnswer(`<p>${escapeMarkup(err.message || 'Gemini request failed.')}</p>`);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Ask';
+    }
+  }
+}
+
+function setAiMode(enabled, input, button) {
+  aiMode = enabled;
+  if (input) {
+    input.type = enabled ? 'text' : 'search';
+    input.placeholder = enabled ? 'Ask Boogle AI...' : 'Search Boogle...';
+  }
+  if (button) button.textContent = enabled ? 'Ask' : 'Search';
+
+  const resultsEl = document.getElementById('results');
+  if (resultsEl) resultsEl.textContent = '';
+  setAiAnswer('', false);
+}
+
 // Hook up DOM
 document.addEventListener('DOMContentLoaded', () => {
-  loadDatabase();
+  databaseReady = loadDatabase();
 
   const input = document.getElementById('searchInput') || document.getElementById('searchBox');
   const button = document.getElementById('searchButton');
+  const aiToggle = document.getElementById('aiModeToggle');
 
-  const debouncedSearch = debounce(evt => search(evt.target.value), 200);
+  const debouncedSearch = debounce(evt => {
+    if (!aiMode) search(evt.target.value);
+  }, 200);
 
   if (input) {
     input.addEventListener('input', debouncedSearch);
     // optional: support enter key
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') search(e.target.value);
+      if (e.key === 'Enter') {
+        if (aiMode) askGemini(e.target.value, button);
+        else search(e.target.value);
+      }
     });
   }
 
   if (button) {
     button.addEventListener('click', () => {
       const q = input ? input.value : '';
-      search(q);
+      if (aiMode) askGemini(q, button);
+      else search(q);
     });
+  }
+
+  if (aiToggle) {
+    aiToggle.addEventListener('change', () => setAiMode(aiToggle.checked, input, button));
   }
 });

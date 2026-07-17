@@ -11,8 +11,24 @@ Boogle is a search engine project designed to facilitate quick and efficient sea
 - Ability to search through a comprehensive database of links
 - Robust algorithm for ranking search results
 
+## Run Locally
+
+Do not open `index.html` directly from disk. Browsers block the app's
+`fetch('database.json')` request when the page uses the `file://` protocol.
+
+From PowerShell, run:
+
+```powershell
+.\start-server.ps1
+```
+
+Then open [http://localhost:8000](http://localhost:8000). To use another port,
+run `./start-server.ps1 -Port 8080` and open the matching localhost URL.
+
 ## Usage Instructions
-To use Boogle, simply enter your search term in the search bar and hit enter. You will be presented with a list of relevant links. 
+
+Enter a search term in the search bar and press Enter. Relevant links appear
+below the search box.
 
 ## How to Add Links to the Database
 To add a link to the Boogle database, follow these steps:
